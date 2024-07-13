@@ -58,14 +58,16 @@ class Anthropic_Chat(VannaBase):
             )
             # claude required system message is a single filed
             # https://docs.anthropic.com/claude/reference/messages_post
-            system_message = ''
+            system_message = ""
             no_system_prompt = []
             for prompt_message in prompt:
-                role = prompt_message['role']
-                if role == 'system':
-                    system_message = prompt_message['content']
+                role = prompt_message["role"]
+                if role == "system":
+                    system_message = prompt_message["content"]
                 else:
-                    no_system_prompt.append({"role": role, "content": prompt_message['content']})
+                    no_system_prompt.append(
+                        {"role": role, "content": prompt_message["content"]}
+                    )
 
             response = self.client.messages.create(
                 model=self.config["model"],

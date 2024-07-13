@@ -1,5 +1,6 @@
 import re
-from transformers import AutoTokenizer, AutoModelForCausalLM
+
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from ..base import VannaBase
 
@@ -61,7 +62,6 @@ class Hf(VannaBase):
         return self.extract_sql_query(sql)
 
     def submit_prompt(self, prompt, **kwargs) -> str:
-
         input_ids = self.tokenizer.apply_chat_template(
             prompt, add_generation_prompt=True, return_tensors="pt"
         ).to(self.model.device)

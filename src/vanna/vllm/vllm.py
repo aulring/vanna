@@ -73,13 +73,12 @@ class Vllm(VannaBase):
         }
 
         if self.auth_key is not None:
-            headers = { 
-            'Content-Type': 'application/json', 
-            'Authorization': f'Bearer {self.auth_key}' 
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.auth_key}",
             }
 
-            response = requests.post(url, headers=headers,json=data)
-
+            response = requests.post(url, headers=headers, json=data)
 
         else:
             response = requests.post(url, json=data)
@@ -88,4 +87,4 @@ class Vllm(VannaBase):
 
         self.log(response.text)
 
-        return response_dict['choices'][0]['message']['content']
+        return response_dict["choices"][0]["message"]["content"]

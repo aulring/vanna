@@ -1,4 +1,5 @@
 import os
+
 from ..base import VannaBase
 
 
@@ -7,7 +8,7 @@ class GoogleGeminiChat(VannaBase):
         VannaBase.__init__(self, config=config)
 
         # default temperature - can be overrided using config
-        self.temperature = 0.7      
+        self.temperature = 0.7
 
         if "temperature" in config:
             self.temperature = config["temperature"]
@@ -31,6 +32,7 @@ class GoogleGeminiChat(VannaBase):
         else:
             # Authenticate using VertexAI
             from vertexai.preview.generative_models import GenerativeModel
+
             self.chat_model = GenerativeModel("gemini-pro")
 
     def system_message(self, message: str) -> any:
