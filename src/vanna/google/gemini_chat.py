@@ -33,7 +33,7 @@ class GoogleGeminiChat(VannaBase):
             # Authenticate using VertexAI
             from vertexai.preview.generative_models import GenerativeModel
 
-            self.chat_model = GenerativeModel("gemini-pro")
+            self.chat_model = GenerativeModel(model_name)
 
     def system_message(self, message: str) -> any:
         return message
