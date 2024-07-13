@@ -180,14 +180,14 @@ class MyVannaDuckDb(DuckDB_VectorStore, OpenAI_Chat):
         OpenAI_Chat.__init__(self, config=config)
 
 
-vn_duckdb = MyVannaDuckDb(config={"api_key": OPENAI_API_KEY, "model": "gpt-4-turbo"})
-
-
 def test_vn_duckdb():
     import duckdb
 
     with TemporaryDirectory() as temp_dir:
-        database_path = os.path.join(temp_dir, "test.duckdb")
+        vn_duckdb = MyVannaDuckDb(
+            config={"api_key": OPENAI_API_KEY, "model": "gpt-4-turbo", "path": temp_dir}
+        )
+        database_path = os.path.join(temp_dir, "vanna.duckdb")
         conn = duckdb.connect(database=database_path)
         conn.close()
         vn_duckdb.connect_to_duckdb(database_path)
@@ -215,7 +215,7 @@ def test_vn_duckdb():
         (5, 'Ethan Hunt', 'DevOps Engineer');
         """
         )
-
+        conn.commit()
         df_information_schema = vn_duckdb.run_sql(
             "SELECT * FROM INFORMATION_SCHEMA.COLUMNS"
         )
@@ -249,13 +249,13 @@ class MyVannaSqlite(SQLite_VectorStore, OpenAI_Chat):
         OpenAI_Chat.__init__(self, config=config)
 
 
-vn_sqlite = MyVannaSqlite(config={"api_key": OPENAI_API_KEY, "model": "gpt-4-turbo"})
-
-
 def test_vn_sqlite():
     import sqlite3
 
     with TemporaryDirectory() as temp_dir:
+        vn_sqlite = MyVannaSqlite(
+            config={"api_key": OPENAI_API_KEY, "model": "gpt-4-turbo", "path": temp_dir}
+        )
         database_path = os.path.join(temp_dir, "test.sqlite")
         conn = sqlite3.connect(database_path)
 

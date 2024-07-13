@@ -163,12 +163,12 @@ class DuckDB_VectorStore(VannaBase):
         similar_questions = []
         for doc in results["text"]:
             try:
-                print(doc)
                 parsed_doc = json.loads(doc)
                 similar_questions.append(
                     {"question": parsed_doc["question"], "sql": parsed_doc["sql"]}
                 )
             except json.JSONDecodeError as e:
+                similar_questions.append(doc)
                 continue
         return similar_questions
 
@@ -179,6 +179,7 @@ class DuckDB_VectorStore(VannaBase):
             try:
                 related_ddls.append(json.loads(doc))
             except json.JSONDecodeError as e:
+                related_ddls.append(doc)
                 continue
         return related_ddls
 
@@ -189,5 +190,6 @@ class DuckDB_VectorStore(VannaBase):
             try:
                 related_docs.append(json.loads(doc))
             except json.JSONDecodeError as e:
+                related_docs.append(doc)
                 continue
         return related_docs
