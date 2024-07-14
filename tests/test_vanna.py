@@ -1,7 +1,8 @@
 import os
 import sys
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, NamedTemporaryFile
 
+import requests
 import pytest
 
 from vanna.anthropic.anthropic_chat import Anthropic_Chat
@@ -235,6 +236,77 @@ def test_vn_duckdb():
         )
         df = vn_duckdb.run_sql(sql)
         assert df.name[0] == "Alice Johnson"
+    del vn_duckdb
+    ################################################################################
+
+    with NamedTemporaryFile(
+        suffix=".sqlite", delete=False
+    ) as temp_sqlite_file, TemporaryDirectory() as temp_duckdb_dir:
+        database_path = os.path.join(temp_duckdb_dir, "vanna.duckdb")
+        response = requests.get("https://vanna.ai/Chinook.sqlite")
+        response.raise_for_status()
+        temp_sqlite_file.write(response.content)
+        temp_sqlite_file.flush()
+        print(f"Downloaded SQLite database to {temp_sqlite_file.name}")
+
+        duckdb_conn = duckdb.connect(database_path)
+        duckdb_conn.execute("INSTALL sqlite;")
+        duckdb_conn.execute("LOAD sqlite;")
+        duckdb_conn.execute(
+            f"ATTACH '{temp_sqlite_file.name}' AS sqlite_db (TYPE sqlite);"
+        )
+        duckdb_conn.execute("USE sqlite_db;")
+        print("Fetching list of tables from attached SQLite database...")
+        tables = duckdb_conn.execute("SHOW TABLES;").fetchall()
+        print(f"Tables found: {tables}")
+
+        ddls = []
+        for table in tables:
+            table_name = table[0]
+            duckdb_conn.execute(
+                f"CREATE TABLE IF NOT EXISTS main.{table_name} AS SELECT * FROM sqlite_db.{table_name}"
+            )
+            print(f"Copied table {table_name} to DuckDB.")
+            ddl_query = f"DESCRIBE {table_name};"
+            columns_info = duckdb_conn.execute(ddl_query).fetchall()
+            ddl = f"CREATE TABLE {table_name} (\n"
+            ddl += ",\n".join([f"  {col[0]} {col[1]}" for col in columns_info])
+            ddl += "\n);"
+            print(f"DDL for table {table_name}:\n{ddl}")
+            ddls.append(ddl)
+
+        duckdb_tables = duckdb_conn.execute("SHOW TABLES").fetchall()
+        duckdb_conn.commit()
+        print("Tables in DuckDB:", duckdb_tables)
+
+        vn_duckdb = MyVannaDuckDb(
+            config={
+                "api_key": OPENAI_API_KEY,
+                "model": "gpt-4-turbo",
+                "path": temp_duckdb_dir,
+            }
+        )
+        vn_duckdb.connect_to_duckdb(conn=duckdb_conn)
+        df_information_schema = vn_duckdb.run_sql(
+            "select * from vanna.information_schema.tables"
+        )
+        print(df_information_schema)
+        df_information_columns = vn_duckdb.run_sql(
+            "select * from vanna.information_schema.columns"
+        )
+        plan_schema = vn_duckdb.get_training_plan_generic(df_information_schema)
+        plan_columns = vn_duckdb.get_training_plan_generic(df_information_columns)
+        vn_duckdb.train(plan=plan_schema)
+        vn_duckdb.train(plan=plan_columns)
+
+        for ddl in ddls:
+            vn_duckdb.train(ddl=ddl)
+
+        sql = vn_duckdb.generate_sql("What are the top 7 customers by sales?")
+        df = vn_duckdb.run_sql(sql)
+        assert len(df) == 7
+
+        duckdb_conn.close()
 
 
 from vanna.sqlite.sqlite_vector import (
@@ -256,7 +328,7 @@ def test_vn_sqlite():
         vn_sqlite = MyVannaSqlite(
             config={"api_key": OPENAI_API_KEY, "model": "gpt-4-turbo", "path": temp_dir}
         )
-        database_path = os.path.join(temp_dir, "test.sqlite")
+        database_path = os.path.join(temp_dir, "vanna.sqlite")
         conn = sqlite3.connect(database_path)
 
         employee_ddl = """
@@ -300,6 +372,29 @@ def test_vn_sqlite():
         )
         df = vn_sqlite.run_sql(sql)
         assert df.name[0] == "Alice Johnson"
+
+    del vn_sqlite
+    #############################################################
+
+    vn_sqlite = MyVannaSqlite(
+        config={"api_key": OPENAI_API_KEY, "model": "gpt-4-turbo"}
+    )
+    vn_sqlite.connect_to_sqlite("https://vanna.ai/Chinook.sqlite")
+    existing_training_data = vn_sqlite.get_training_data()
+    if len(existing_training_data) > 0:
+        for _, training_data in existing_training_data.iterrows():
+            vn_sqlite.remove_training_data(training_data["id"])
+
+    df_ddl = vn_sqlite.run_sql(
+        "SELECT type, sql FROM sqlite_master WHERE sql is not null"
+    )
+
+    for ddl in df_ddl["sql"].to_list():
+        vn_sqlite.train(ddl=ddl)
+
+    sql = vn_sqlite.generate_sql("What are the top 7 customers by sales?")
+    df = vn_sqlite.run_sql(sql)
+    assert len(df) == 7
 
 
 from vanna.milvus import Milvus_VectorStore

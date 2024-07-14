@@ -795,7 +795,7 @@ class VannaBase(ABC):
         self.run_sql = run_sql_snowflake
         self.run_sql_is_set = True
 
-    def connect_to_sqlite(self, url: str):
+    def connect_to_sqlite(self, url: str = ":memory:", conn=None):
         """
         Connect to a SQLite database. This is just a helper function to set [`vn.run_sql`][vanna.base.base.VannaBase.run_sql]
 
@@ -808,19 +808,24 @@ class VannaBase(ABC):
 
         # URL of the database to download
 
-        # Path to save the downloaded database
-        path = os.path.basename(urlparse(url).path)
+        if not conn:
+            path = os.path.basename(urlparse(url).path)
 
-        # Download the database if it doesn't exist
-        if not os.path.exists(url):
-            response = requests.get(url)
-            response.raise_for_status()  # Check that the request was successful
-            with open(path, "wb") as f:
-                f.write(response.content)
-            url = path
+            if path == ":memory:" or path == "":
+                url = ":memory:"
 
-        # Connect to the database
-        conn = sqlite3.connect(url, check_same_thread=False)
+            elif not os.path.exists(url):
+                response = requests.get(url)
+                response.raise_for_status()  # Check that the request was successful
+                with open(path, "wb") as f:
+                    f.write(response.content)
+                url = path
+            else:
+                raise ValidationError(
+                    f"Invalid connection settings. Pass a valid url or sqlite conn."
+                )
+
+            conn = sqlite3.connect(url, check_same_thread=False)
 
         def run_sql_sqlite(sql: str):
             return pd.read_sql_query(sql, conn)
@@ -1271,7 +1276,7 @@ class VannaBase(ABC):
         self.run_sql_is_set = True
         self.run_sql = run_sql_bigquery
 
-    def connect_to_duckdb(self, url: str, init_sql: str = None):
+    def connect_to_duckdb(self, url: str = ":memory:", init_sql: str = None, conn=None):
         """
         Connect to a DuckDB database. This is just a helper function to set [`vn.run_sql`][vanna.base.base.VannaBase.run_sql]
 
@@ -1291,27 +1296,23 @@ class VannaBase(ABC):
                 "You need to install required dependencies to execute this method,"
                 " run command: \npip install vanna[duckdb]"
             )
-        # URL of the database to download
-        if url == ":memory:" or url == "":
-            path = ":memory:"
-        else:
-            # Path to save the downloaded database
-            print(os.path.exists(url))
-            if os.path.exists(url):
-                path = url
-            elif url.startswith("md") or url.startswith("motherduck"):
-                path = url
+        if not conn:
+            if url == ":memory:" or url == "":
+                path = ":memory:"
             else:
-                path = os.path.basename(urlparse(url).path)
-                # Download the database if it doesn't exist
-                if not os.path.exists(path):
-                    response = requests.get(url)
-                    response.raise_for_status()  # Check that the request was successful
-                    with open(path, "wb") as f:
-                        f.write(response.content)
+                if os.path.exists(url):
+                    path = url
+                elif url.startswith("md") or url.startswith("motherduck"):
+                    path = url
+                else:
+                    path = os.path.basename(urlparse(url).path)
+                    if not os.path.exists(path):
+                        response = requests.get(url)
+                        response.raise_for_status()
+                        with open(path, "wb") as f:
+                            f.write(response.content)
 
-        # Connect to the database
-        conn = duckdb.connect(path)
+                conn = duckdb.connect(path)
         if init_sql:
             conn.query(init_sql)
 
